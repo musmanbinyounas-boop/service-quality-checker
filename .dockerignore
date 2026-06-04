@@ -1,0 +1,13 @@
+.venv/
+.git/
+.github/
+data/
+tests/
+**/__pycache__/
+**/*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+*.zip
+# keep models/model.joblib but exclude versioned copies
+models/model_*.joblib
