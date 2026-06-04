@@ -58,7 +58,8 @@ def _build_pipelines() -> dict[str, Pipeline]:
         "RandomForest": Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
             ("clf", RandomForestClassifier(
-                n_estimators=300,
+                n_estimators=200,
+                min_samples_leaf=5,
                 class_weight="balanced",
                 random_state=config.RANDOM_STATE,
                 n_jobs=-1,
@@ -148,8 +149,8 @@ def _save_artifacts(result: dict) -> None:
 
     model_path = config.MODELS_DIR / "model.joblib"
     versioned_path = config.MODELS_DIR / f"model_{ts}.joblib"
-    joblib.dump(bundle, model_path)
-    joblib.dump(bundle, versioned_path)
+    joblib.dump(bundle, model_path, compress=3)
+    joblib.dump(bundle, versioned_path, compress=3)
 
     metrics_path = config.REPORTS_DIR / "metrics.json"
     with open(metrics_path, "w") as fh:

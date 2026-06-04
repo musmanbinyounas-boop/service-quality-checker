@@ -1,0 +1,35 @@
+{
+  "LogisticRegression": {
+    "precision": 0.3063595808693848,
+    "recall": 0.646736749890495,
+    "f1": 0.4157690953889476,
+    "classification_report": "              precision    recall  f1-score   support\n\n           0       0.83      0.53      0.65     28611\n           1       0.31      0.65      0.42      9132\n\n    accuracy                           0.56     37743\n   macro avg       0.57      0.59      0.53     37743\nweighted avg       0.70      0.56      0.59     37743\n",
+    "confusion_matrix": [
+      [
+        15239,
+        13372
+      ],
+      [
+        3226,
+        5906
+      ]
+    ]
+  },
+  "RandomForest": {
+    "precision": 0.5269633905514203,
+    "recall": 0.7597459483136224,
+    "f1": 0.6222979639429546,
+    "classification_report": "              precision    recall  f1-score   support\n\n           0       0.91      0.78      0.84     28611\n           1       0.53      0.76      0.62      9132\n\n    accuracy                           0.78     37743\n   macro avg       0.72      0.77      0.73     37743\nweighted avg       0.82      0.78      0.79     37743\n",
+    "confusion_matrix": [
+      [
+        22383,
+        6228
+      ],
+      [
+        2194,
+        6938
+      ]
+    ]
+  },
+  "winner": "RandomForest"
+}
