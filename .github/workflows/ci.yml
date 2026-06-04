@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"   # caches based on requirements.txt hash
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e .
+          # ruff and pytest come from requirements.txt via the editable install;
+          # this is a belt-and-suspenders fallback in case a future refactor
+          # moves them out of requirements.txt
+          pip install ruff pytest
+
+      - name: Lint
+        run: ruff check src tests scripts
+
+      - name: Test
+        run: pytest -q
