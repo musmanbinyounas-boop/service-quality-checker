@@ -1,0 +1,31 @@
+# --- never commit raw or processed data, or model artifacts ---
+# Ignore directory *contents* (dir/*) so the .gitkeep placeholder can be
+# re-included. (Using "dir/" instead would exclude the dir itself and git
+# cannot re-include a file under an excluded directory.)
+data/raw/*
+data/processed/*
+models/*
+reports/drift/*
+*.joblib
+*.zip
+
+# keep empty-dir placeholders
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!models/.gitkeep
+!reports/drift/.gitkeep
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# --- os / editor ---
+.DS_Store
+.idea/
+.vscode/
