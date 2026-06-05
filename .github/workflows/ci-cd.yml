@@ -49,30 +49,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install huggingface_hub
-        run: pip install huggingface_hub
-
       - name: Pull model from HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python -c "
-          import os, shutil
-          from huggingface_hub import hf_hub_download
-          os.makedirs('models', exist_ok=True)
-          p = hf_hub_download(
-              repo_id='musmanbinyounas/service-quality-checker',
-              repo_type='space',
-              filename='models/model.joblib',
-              token=os.environ['HF_TOKEN']
-          )
-          shutil.copy(p, 'models/model.joblib')
-          print('model bytes:', os.path.getsize('models/model.joblib'))
-          "
+          mkdir -p models
+          for attempt in 1 2 3 4 5 6 7 8; do
+            echo "Download attempt $attempt..."
+            if curl -fsSL \
+              -H "Authorization: Bearer ${HF_TOKEN}" \
+              "https://huggingface.co/spaces/musmanbinyounas/service-quality-checker/resolve/main/models/model.joblib" \
+              -o models/model.joblib; then
+              echo "Success – $(stat -c%s models/model.joblib) bytes"
+              break
+            fi
+            [ "$attempt" -eq 8 ] && { echo "All attempts exhausted"; exit 1; }
+            echo "Failed, sleeping 60 s before retry..."
+            sleep 60
+          done
 
       - uses: docker/setup-buildx-action@v3
 
