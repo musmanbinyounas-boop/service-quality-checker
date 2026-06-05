@@ -15,6 +15,7 @@ from sqc.store import get_collection
 
 _PSI_MEDIUM = 0.1
 _PSI_HIGH = 0.2
+MIN_DRIFT_SAMPLE = 100  # fewer rows → PSI explodes via epsilon guard on empty bins
 
 
 def _psi_one_feature(series: pd.Series, ref_bins: list[float]) -> float:
@@ -50,14 +51,42 @@ def _severity(psi: float) -> str:
 def run_drift(df: pd.DataFrame, stats_path: Path | None = None) -> dict:
     """Compute per-feature PSI drift for *df* vs. the committed reference stats.
 
-    Returns::
+    Returns one of two shapes:
+
+    Sufficient data (len >= MIN_DRIFT_SAMPLE)::
 
         {
             "features": {name: {"psi": float, "severity": str}, ...},
             "max_psi":  float,
             "alert":    bool,   # True when max_psi >= 0.2
         }
+
+    Insufficient data (len < MIN_DRIFT_SAMPLE)::
+
+        {
+            "status":     "insufficient_data",
+            "n":          int,
+            "min_sample": int,
+            "features":   {name: {"psi": None, "severity": "unknown"}, ...},
+            "max_psi":    None,
+            "alert":      False,   # unreliable sample must NOT trigger alerts
+        }
     """
+    n = len(df)
+    if n < MIN_DRIFT_SAMPLE:
+        print(
+            f"[drift] WARNING: only {n} rows — PSI is unreliable at this sample size "
+            f"(need >= {MIN_DRIFT_SAMPLE}). Returning status='insufficient_data'."
+        )
+        return {
+            "status": "insufficient_data",
+            "n": n,
+            "min_sample": MIN_DRIFT_SAMPLE,
+            "features": {feat: {"psi": None, "severity": "unknown"} for feat in config.FEATURES},
+            "max_psi": None,
+            "alert": False,
+        }
+
     if stats_path is None:
         stats_path = config.REPORTS_DIR / "train_feature_stats.json"
     ref = json.loads(Path(stats_path).read_text())
@@ -122,17 +151,18 @@ def _run_cli() -> None:
             return
 
     n = len(df)
-    if n < 100:
-        print(f"WARNING: only {n} rows — drift estimate is unreliable (small sample).")
-
-    result = run_drift(df)
+    result = run_drift(df)  # prints its own warning when n < MIN_DRIFT_SAMPLE
 
     print("\nPSI Drift Report")
     print("=" * 52)
-    for feat, v in result["features"].items():
-        print(f"  {feat:8s}: PSI={v['psi']:.4f}  ({v['severity']})")
-    print(f"\n  max_PSI : {result['max_psi']:.4f}")
-    print(f"  alert   : {result['alert']}")
+    if result.get("status") == "insufficient_data":
+        print(f"  STATUS  : insufficient_data ({n} rows, need >= {result['min_sample']})")
+        print(f"  alert   : {result['alert']}  (suppressed — unreliable sample)")
+    else:
+        for feat, v in result["features"].items():
+            print(f"  {feat:8s}: PSI={v['psi']:.4f}  ({v['severity']})")
+        print(f"\n  max_PSI : {result['max_psi']:.4f}")
+        print(f"  alert   : {result['alert']}")
 
     out_dir = config.REPORTS_DIR / "drift"
     out_dir.mkdir(parents=True, exist_ok=True)

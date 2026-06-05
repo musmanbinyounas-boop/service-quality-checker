@@ -134,14 +134,16 @@ def run_ct(
     else:
         drift_df = d_new[list(config.FEATURES)]
 
-    n_drift = len(drift_df)
-    if n_drift < 100:
-        print(f"  WARNING: {n_drift} rows — drift estimate is unreliable (small sample).")
+    drift_result = run_drift(drift_df)  # prints its own warning when n < MIN_DRIFT_SAMPLE
+    is_insufficient = drift_result.get("status") == "insufficient_data"
 
-    drift_result = run_drift(drift_df)
-    for feat, v in drift_result["features"].items():
-        print(f"  {feat:8s}: PSI={v['psi']:.4f}  ({v['severity']})")
-    print(f"  max_PSI={drift_result['max_psi']:.4f}  alert={drift_result['alert']}")
+    if is_insufficient:
+        print(f"  INSUFFICIENT DATA: {drift_result['n']} rows "
+              f"(need >= {drift_result['min_sample']}) — PSI suppressed, alert=False.")
+    else:
+        for feat, v in drift_result["features"].items():
+            print(f"  {feat:8s}: PSI={v['psi']:.4f}  ({v['severity']})")
+        print(f"  max_PSI={drift_result['max_psi']:.4f}  alert={drift_result['alert']}")
 
     should_retrain = drift_result["alert"] or force
     if not should_retrain:
@@ -242,6 +244,7 @@ def run_ct(
     report: dict = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "drift_source": drift_source,
+        "drift_status": drift_result.get("status", "ok"),
         "drift": drift_result,
         "reason": reason,
         "n_d_old": len(d_old),
