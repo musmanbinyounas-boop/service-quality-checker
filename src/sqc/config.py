@@ -10,6 +10,7 @@ textbook assumptions. The two that matter most:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
@@ -78,3 +79,10 @@ RAW_NUMERIC_COLS = ["RSRP", "RSRQ", "SNR", "CQI", "Speed", THROUGHPUT_COL]
 
 # Reproducibility
 RANDOM_STATE = 42
+
+# --------------------------------------------------------------------------- #
+# MongoDB monitoring (stage 7)                                                #
+# --------------------------------------------------------------------------- #
+MONGODB_URI: str | None = os.environ.get("MONGODB_URI")
+MONGO_DB_NAME = "sqc_monitoring"
+MONGO_COLLECTION = "predictions"

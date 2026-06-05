@@ -44,7 +44,7 @@ def _load_data() -> pd.DataFrame:
     return df
 
 
-def _build_pipelines() -> dict[str, Pipeline]:
+def build_pipelines() -> dict[str, Pipeline]:
     return {
         "LogisticRegression": Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
@@ -112,7 +112,7 @@ def train_from_frame(df: pd.DataFrame) -> dict:
         random_state=config.RANDOM_STATE,
     )
 
-    pipelines = _build_pipelines()
+    pipelines = build_pipelines()
     all_metrics: dict[str, dict] = {}
     for name, pipeline in pipelines.items():
         pipeline.fit(X_train, y_train)

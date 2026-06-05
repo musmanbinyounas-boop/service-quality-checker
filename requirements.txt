@@ -16,6 +16,9 @@ fastapi>=0.110
 uvicorn[standard]>=0.27
 pydantic>=2.0
 
+# monitoring + CT (stages 7-8)
+pymongo[srv]>=4.6      # [srv] pulls dnspython, required for mongodb+srv:// URIs
+
 # dev / CI (stage 4)
 pytest>=8.0
 httpx>=0.27            # FastAPI TestClient
