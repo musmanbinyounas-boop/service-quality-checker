@@ -92,42 +92,20 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install huggingface_hub
-        run: pip install huggingface_hub
-
-      - name: Update Space Dockerfile to pull prebuilt image
+      - name: Update Space Dockerfile via git push
         env:
           GITHUB_SHA: ${{ github.sha }}
           DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python -c "
-          import io, os, time
-          from huggingface_hub import HfApi
-          tag = os.environ['GITHUB_SHA']
-          user = os.environ['DH_USER']
-          dockerfile = f'FROM docker.io/{user}/service-quality-checker:{tag}\n'.encode()
-          api = HfApi()
-          for attempt in range(8):
-              try:
-                  api.upload_file(
-                      path_or_fileobj=io.BytesIO(dockerfile),
-                      path_in_repo='Dockerfile',
-                      repo_id='musmanbinyounas/service-quality-checker',
-                      repo_type='space',
-                      token=os.environ['HF_TOKEN'],
-                      commit_message=f'Deploy image {tag} via CI/CD'
-                  )
-                  print(f'Deployed {tag}')
-                  break
-              except Exception as e:
-                  if attempt == 7:
-                      raise
-                  wait = min(120, 15 * 2 ** attempt)
-                  print(f'Attempt {attempt + 1} failed. Retrying in {wait}s...')
-                  time.sleep(wait)
-          "
+          git clone --depth 1 \
+            "https://musmanbinyounas:${HF_TOKEN}@huggingface.co/spaces/musmanbinyounas/service-quality-checker" \
+            /tmp/hf-space
+          cd /tmp/hf-space
+          echo "FROM docker.io/${DH_USER}/service-quality-checker:${GITHUB_SHA}" > Dockerfile
+          git config user.email "ci@github.com"
+          git config user.name "GitHub Actions"
+          git add Dockerfile
+          git diff --cached --quiet && echo "Dockerfile unchanged — skipping commit" && exit 0
+          git commit -m "Deploy image ${GITHUB_SHA} via CI/CD"
+          git push
