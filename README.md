@@ -32,36 +32,56 @@ curl -s -X POST https://musmanbinyounas-service-quality-checker.hf.space/predict
 
 ## Architecture
 
-```
-UCC 5G CSVs (83 files, GPL-3.0)
-        |  scripts/get_data.py
-        v
-data/raw/                          (gitignored)
-        |  src/sqc/features.py  (clean, label)
-        v
-data/processed/dataset.parquet     (gitignored)
-        |  src/sqc/train.py  (SimpleImputer -> RandomForest)
-        v
-models/model.joblib  60 MB         (gitignored)
-        |  app/main.py  FastAPI + Dockerfile
-        v
-Docker Hub  musmanbinyounas/service-quality-checker
-        |  HF Space pulls FROM image
-        v
-HF Space  (live, port 7860)
-  /health  /predict
-        |  BackgroundTask write
-        v
-MongoDB Atlas  sqc_monitoring.predictions
-        |  src/sqc/drift.py  (PSI vs reference stats)
-        v
-Drift alert -> src/sqc/retrain.py  (simulated CT)
-        |  reports/ct/  (candidate model + CT report)
-        v
-Human review -> --promote -> models/model.joblib  (if gate passes)
+```mermaid
+flowchart TD
+    subgraph DT["Data & Training"]
+        UCC["UCC 5G zip · GPL-3.0"]
+        RAW["data/raw/"]
+        PAR["dataset.parquet<br/>188 711 rows · Pandera-validated"]
+        MDL["model.joblib · 60 MB<br/>SimpleImputer → RandomForest"]
+        RPT["metrics.json<br/>train_feature_stats.json"]
 
-CI/CD  .github/workflows/ci-cd.yml   push -> lint -> test -> build -> deploy
-CT     .github/workflows/ct.yml      weekly cron -> retrain report (no auto-deploy)
+        UCC -->|get_data.py| RAW
+        RAW -->|"features.py: clean, label DL_bitrate>=5000 kbps"| PAR
+        PAR -->|train.py| MDL
+        MDL --> RPT
+    end
+
+    subgraph SRV["Serving — HF Space"]
+        API["FastAPI<br/>GET /  ·  GET /health  ·  POST /predict"]
+    end
+
+    subgraph CICD["CI/CD — ci-cd.yml · push to main"]
+        LNT["Lint · ruff"]
+        TST["Test · pytest"]
+        BLD["Build Docker image"]
+        HUB["Docker Hub<br/>SHA + latest tags"]
+        SPC["HF Space<br/>pulls prebuilt image"]
+
+        LNT --> TST --> BLD --> HUB --> SPC
+    end
+
+    subgraph MON["Monitoring"]
+        MDB["MongoDB Atlas<br/>sqc_monitoring.predictions"]
+        DRF["drift.py · PSI vs train_feature_stats"]
+
+        MDB --> DRF
+    end
+
+    subgraph CTR["Continuous Training — ct.yml · weekly cron + manual"]
+        RET["retrain.py<br/>simulated temporal holdback"]
+        EVL["fair eval on fixed test set"]
+        GTE["promotion gate<br/>KEEP_CURRENT unless better F1"]
+        ART["CT artifact<br/>report + candidate model"]
+
+        RET -->|drift trigger| EVL --> GTE --> ART
+    end
+
+    MDL -->|loaded at startup| API
+    SPC --> API
+    API -.->|async BackgroundTask| MDB
+    DRF -.->|PSI drift signal| RET
+    ART -.->|"manual --promote only"| MDL
 ```
 
 ---
