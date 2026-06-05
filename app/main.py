@@ -139,15 +139,31 @@ input[type=number]:focus{border-color:#3498db;background:#fff}
 .empty{text-align:center;padding:28px 16px;color:#c0c6cb}
 .empty-icon{font-size:2rem;margin-bottom:7px}
 .empty p{font-size:0.88rem}
+.triage-note{background:#f4f6f7;border-left:3px solid #aab4bb;border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.78rem;color:#5d6d7e;margin-bottom:16px;line-height:1.5}
+.triage-note strong{color:#4a5a65}
+.form-help{font-size:0.78rem;color:#95a5a6;margin-bottom:10px;line-height:1.4}
+.section-caption{font-size:0.78rem;color:#95a5a6;margin-bottom:12px;line-height:1.4}
+.drift-caption{font-size:0.72rem;color:#aaa;margin-bottom:8px;line-height:1.4}
+.page-footer{text-align:center;padding:18px 0 10px;font-size:0.75rem;color:#bbb;line-height:1.9;border-top:1px solid #e8ecf0;margin-top:4px}
+.page-footer a{color:#95a5a6;text-decoration:none}
+.page-footer a:hover{color:#7f8c8d;text-decoration:underline}
 </style>
 </head>
 <body>
 <div class="page">
   <h1>Service Quality Checker</h1>
-  <p class="subtitle">5G/LTE QoS triage &mdash; predict &amp; monitor on one screen</p>
+  <p class="subtitle">Predicts whether a 5G/LTE measurement point likely delivers &ge;&nbsp;5&nbsp;Mbps downlink throughput &mdash; predict a location and monitor live stats on one screen.</p>
+
+  <div class="triage-note">
+    <strong>Screening tool, not a verdict.</strong>
+    This model flags measurement points for human review.
+    A &ldquo;Fail&rdquo; cannot distinguish genuine poor coverage from temporary congestion
+    &mdash; the training data contains no cell-load or backhaul information.
+  </div>
 
   <div class="card">
     <h2>Predict</h2>
+    <p class="form-help">Enter radio measurements for a single location. RSRP, RSRQ, and Speed are required; SNR and CQI are optional and will be imputed from the training median if left blank.</p>
     <div class="inputs-grid">
       <div><label>RSRP&nbsp;(dBm)</label>
         <input type="number" id="f-RSRP" value="-75" min="-140" max="-40" step="1"></div>
@@ -174,10 +190,17 @@ input[type=number]:focus{border-color:#3498db;background:#fff}
         </button>
       </div>
     </div>
+    <p class="section-caption">Live predictions logged to the database &mdash; counts, pass rate, latency, and PSI drift (how much recent inputs differ from the training distribution).</p>
     <div id="monitor-body">
       <div class="empty"><div class="empty-icon">&#128202;</div><p>Loading&hellip;</p></div>
     </div>
   </div>
+
+  <footer class="page-footer">
+    <p>RandomForest trained on the <strong>UCC 5G dataset</strong> (single anonymised Irish operator, GPL-3.0).
+    &nbsp;<strong>Screening tool &mdash; not a verdict.</strong></p>
+    <p><a href="/docs">API&nbsp;docs</a> &middot; <a href="/health">Health&nbsp;check</a></p>
+  </footer>
 </div>
 
 <script>
@@ -294,7 +317,8 @@ function sbox(label,value,sub){
 }
 
 function renderDrift(drift){
-  var html='<div class="drift-box"><div class="ctitle" style="margin-bottom:7px">PSI Feature Drift</div>';
+  var html='<div class="drift-box"><div class="ctitle" style="margin-bottom:4px">PSI Feature Drift</div>'
+    +'<p class="drift-caption">Population Stability Index &mdash; how much recent prediction inputs differ from the training distribution. High PSI (&ge;&nbsp;0.2) suggests the model may need revalidation. Requires &ge;&nbsp;100 predictions to be reliable.</p>';
   if(!drift){
     html+='<p style="color:#ccc;font-size:0.8rem">Drift data unavailable.</p>';
   } else if(drift.status==='insufficient_data'){
