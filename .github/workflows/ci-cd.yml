@@ -49,24 +49,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull model from HF Space
+      - name: Cache model
+        uses: actions/cache@v4
+        id: model-cache
+        with:
+          path: models/model.joblib
+          key: model-joblib-${{ hashFiles('src/**', 'pyproject.toml') }}
+          restore-keys: model-joblib-
+
+      - name: Pull model from HF Space via git-lfs
+        if: steps.model-cache.outputs.cache-hit != 'true'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           mkdir -p models
-          for attempt in 1 2 3 4 5 6 7 8; do
-            echo "Download attempt $attempt..."
-            if curl -fsSL \
-              -H "Authorization: Bearer ${HF_TOKEN}" \
-              "https://huggingface.co/spaces/musmanbinyounas/service-quality-checker/resolve/main/models/model.joblib" \
-              -o models/model.joblib; then
-              echo "Success – $(stat -c%s models/model.joblib) bytes"
-              break
-            fi
-            [ "$attempt" -eq 8 ] && { echo "All attempts exhausted"; exit 1; }
-            echo "Failed, sleeping 60 s before retry..."
-            sleep 60
-          done
+          GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 \
+            "https://musmanbinyounas:${HF_TOKEN}@huggingface.co/spaces/musmanbinyounas/service-quality-checker" \
+            /tmp/hf-space
+          cd /tmp/hf-space
+          git lfs pull --include="models/model.joblib"
+          cp models/model.joblib "${GITHUB_WORKSPACE}/models/model.joblib"
+          echo "model bytes: $(stat -c%s ${GITHUB_WORKSPACE}/models/model.joblib)"
 
       - uses: docker/setup-buildx-action@v3
 
