@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
 COPY app/ app/
 COPY models/model.joblib models/model.joblib
 COPY reports/train_feature_stats.json reports/train_feature_stats.json
+COPY reports/metrics.json reports/metrics.json
 
 EXPOSE 7860
 
