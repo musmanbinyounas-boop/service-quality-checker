@@ -103,17 +103,28 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python -c "
-          import os
+          import io, os, time
           from huggingface_hub import HfApi
           tag = os.environ['GITHUB_SHA']
           user = os.environ['DH_USER']
-          content = f'FROM docker.io/{user}/service-quality-checker:{tag}\n'.encode()
-          HfApi().upload_file(
-              path_or_fileobj=content,
-              path_in_repo='Dockerfile',
-              repo_id='musmanbinyounas/service-quality-checker',
-              repo_type='space',
-              token=os.environ['HF_TOKEN'],
-              commit_message=f'Deploy image {tag} via CI/CD'
-          )
+          dockerfile = f'FROM docker.io/{user}/service-quality-checker:{tag}\n'.encode()
+          api = HfApi()
+          for attempt in range(8):
+              try:
+                  api.upload_file(
+                      path_or_fileobj=io.BytesIO(dockerfile),
+                      path_in_repo='Dockerfile',
+                      repo_id='musmanbinyounas/service-quality-checker',
+                      repo_type='space',
+                      token=os.environ['HF_TOKEN'],
+                      commit_message=f'Deploy image {tag} via CI/CD'
+                  )
+                  print(f'Deployed {tag}')
+                  break
+              except Exception as e:
+                  if attempt == 7:
+                      raise
+                  wait = min(120, 15 * 2 ** attempt)
+                  print(f'Attempt {attempt + 1} failed. Retrying in {wait}s...')
+                  time.sleep(wait)
           "
