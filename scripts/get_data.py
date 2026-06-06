@@ -19,6 +19,12 @@ from sqc import ingest  # noqa: E402
 
 
 def main() -> None:
+    """CLI entry point: download and extract the UCC 5G dataset into data/raw/.
+
+    Delegates to ingest.fetch_dataset (idempotent by default) and then
+    ingest.find_csv_files to confirm extraction.  Pass --force to re-download
+    even when the dataset directory already exists.
+    """
     ap = argparse.ArgumentParser(description="Download the UCC 5G dataset into data/raw")
     ap.add_argument("--force", action="store_true", help="refetch even if already present")
     args = ap.parse_args()

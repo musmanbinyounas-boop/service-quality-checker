@@ -36,6 +36,11 @@ app = FastAPI(title="Service Quality Checker", version="0.1.0", lifespan=lifespa
 # --------------------------------------------------------------------------- #
 
 def _load_model_metrics() -> dict | None:
+    """Read the winner's precision/recall/F1 from reports/metrics.json.
+
+    Returns a dict with model_type and the three scores, or None if the file
+    is absent or unreadable (e.g. first run before training).
+    """
     try:
         data = json.loads((config.REPORTS_DIR / "metrics.json").read_text())
         winner = data.get("winner", "RandomForest")
@@ -51,6 +56,12 @@ def _load_model_metrics() -> dict | None:
 
 
 def _timeseries(docs: list[dict]) -> list[dict]:
+    """Bucket prediction docs into hourly or daily counts for the timeseries chart.
+
+    Parses the 'ts' ISO string from each doc.  Uses hourly buckets when the
+    total time span is <= 2 days, daily buckets otherwise.  Returns a list of
+    dicts sorted by bucket key, each with 'bucket', 'count', and 'pass_count'.
+    """
     parsed = []
     for d in docs:
         try:
@@ -428,11 +439,18 @@ refreshStats();
 
 @app.get("/")
 def root():
+    """Redirect the root URL to the combined predict-and-monitor dashboard."""
     return RedirectResponse(url="/dashboard")
 
 
 @app.get("/health")
 def health() -> dict:
+    """Return a liveness/readiness check with key model metadata.
+
+    Reports the model type, feature list, training timestamp, and sklearn
+    version loaded at startup.  A 200 response confirms the model bundle
+    was loaded successfully and the service is ready to accept predictions.
+    """
     return {
         "status": "ok",
         "model_type": _bundle["model_type"],
@@ -444,6 +462,13 @@ def health() -> dict:
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest, background_tasks: BackgroundTasks) -> PredictResponse:
+    """Run a single QoS prediction and log the result to MongoDB asynchronously.
+
+    Builds a one-row DataFrame from the request features (mapping None to NaN so
+    the pipeline's SimpleImputer handles optional fields), runs inference, then
+    schedules a MongoDB write via BackgroundTasks so the DB never adds latency to
+    the response.  A failed or absent DB connection never affects the prediction.
+    """
     features: list[str] = _bundle["features"]
     data = req.model_dump()
     row = {f: (np.nan if data.get(f) is None else data[f]) for f in features}
@@ -483,6 +508,15 @@ def predict(req: PredictRequest, background_tasks: BackgroundTasks) -> PredictRe
 
 @app.get("/dashboard/data")
 def dashboard_data():
+    """Return live monitoring stats as JSON for the dashboard frontend to poll.
+
+    Reads up to 1000 recent prediction docs from MongoDB and computes: total
+    counts, pass rate, average and P95 latency, a timeseries of hourly/daily
+    buckets, a 10-bin pass-probability histogram, PSI feature drift, and the
+    winner model's evaluation metrics from reports/metrics.json.  All MongoDB
+    calls are wrapped in try/except so a down or unconfigured DB always returns
+    {"available": false} with HTTP 200 rather than a 500 error.
+    """
     try:
         col = get_collection()
     except Exception as exc:
@@ -571,4 +605,10 @@ def dashboard_data():
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard():
+    """Serve the self-contained predict-and-monitor dashboard page.
+
+    Returns the pre-built HTML string (_DASHBOARD_HTML) which contains inline
+    CSS and vanilla JS — no external CDN dependencies.  The page fetches
+    /predict and /dashboard/data via relative URLs after load.
+    """
     return _DASHBOARD_HTML

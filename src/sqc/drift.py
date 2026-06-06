@@ -41,6 +41,11 @@ def _psi_one_feature(series: pd.Series, ref_bins: list[float]) -> float:
 
 
 def _severity(psi: float) -> str:
+    """Map a PSI value to a human-readable severity label.
+
+    Returns 'low' for PSI < 0.1 (no action needed), 'medium' for 0.1–0.2
+    (monitor closely), and 'high' for PSI >= 0.2 (investigate retraining).
+    """
     if psi < _PSI_MEDIUM:
         return "low"
     if psi < _PSI_HIGH:
@@ -127,6 +132,13 @@ def load_recent_from_mongo(limit: int = 2000) -> pd.DataFrame:
 
 
 def _run_cli() -> None:
+    """Entry point for the drift CLI (``python -m sqc.drift``).
+
+    Parses --source (file or mongo) and --limit, loads the appropriate data,
+    calls run_drift(), prints the per-feature PSI report to stdout, and writes
+    a timestamped JSON report to reports/drift/.  Returns early with a clear
+    message when there is no MongoDB data to analyse.
+    """
     parser = argparse.ArgumentParser(description="PSI feature drift detection")
     parser.add_argument(
         "--source", choices=["file", "mongo"], required=True,

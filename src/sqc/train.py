@@ -29,6 +29,12 @@ from sqc.validate import validate
 
 
 def _load_data() -> pd.DataFrame:
+    """Load and validate the processed dataset from disk.
+
+    If dataset.parquet is missing it is built automatically by calling
+    features.build_dataset().  Raises SystemExit if Pandera validation fails,
+    ensuring training never runs on corrupt data.
+    """
     if not config.PROCESSED_FILE.exists():
         print("dataset.parquet not found -- building it now ...")
         from sqc.features import build_dataset
@@ -45,6 +51,14 @@ def _load_data() -> pd.DataFrame:
 
 
 def build_pipelines() -> dict[str, Pipeline]:
+    """Return a fresh dict of named, unfitted sklearn Pipelines.
+
+    Each pipeline pairs a SimpleImputer (median strategy, handles missing radio
+    measurements) with its classifier.  Returns both LogisticRegression and
+    RandomForest variants so the caller can train and compare them fairly.
+    Exposed as a public function so retrain.py can reuse the same model
+    configuration without duplicating hyperparameters.
+    """
     return {
         "LogisticRegression": Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
@@ -69,6 +83,12 @@ def build_pipelines() -> dict[str, Pipeline]:
 
 
 def _compute_metrics(pipeline: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
+    """Evaluate a fitted pipeline on the held-out test set and return a metrics dict.
+
+    Reports precision, recall, and F1 for the positive (Pass) class, plus the
+    full classification report string and the confusion matrix as a nested list.
+    All scores use pos_label=1 and zero_division=0 to handle edge cases cleanly.
+    """
     y_pred = pipeline.predict(X_test)
     return {
         "precision": float(precision_score(y_test, y_pred, pos_label=1, zero_division=0)),
@@ -141,6 +161,13 @@ def train_from_frame(df: pd.DataFrame) -> dict:
 
 
 def _save_artifacts(result: dict) -> None:
+    """Persist the training outputs to disk.
+
+    Writes three artifacts: the model bundle (models/model.joblib and a
+    timestamped versioned copy), the evaluation metrics for both pipelines
+    (reports/metrics.json), and the per-feature reference distribution used
+    by drift detection (reports/train_feature_stats.json).
+    """
     bundle = result["bundle"]
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 

@@ -56,6 +56,11 @@ def promotion_gate(baseline_f1: float, retrained_f1: float) -> bool:
 
 
 def _eval_pipeline(pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
+    """Compute precision, recall, and F1 for a fitted pipeline on the test set.
+
+    All metrics target the positive (Pass) class with pos_label=1.
+    Used by _best_pipeline to compare candidates on the same fixed test set.
+    """
     y_pred = pipeline.predict(X_test)
     return {
         "precision": float(precision_score(y_test, y_pred, pos_label=1, zero_division=0)),
@@ -81,6 +86,12 @@ def _best_pipeline(X_train: pd.DataFrame, y_train: pd.Series,
 
 
 def _load_dataset() -> pd.DataFrame:
+    """Load dataset.parquet from disk, sorted by timestamp, ready for temporal split.
+
+    If the parquet file is absent it attempts to build it from the raw CSVs via
+    features.build_dataset().  Raises SystemExit with a helpful message if the
+    raw data is also missing, rather than propagating a cryptic FileNotFoundError.
+    """
     if not config.PROCESSED_FILE.exists():
         print("dataset.parquet not found — building from raw data ...")
         from sqc.features import build_dataset

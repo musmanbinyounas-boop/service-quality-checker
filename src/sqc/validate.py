@@ -14,6 +14,12 @@ from sqc import config
 
 
 def _build_schema() -> DataFrameSchema:
+    """Build and return the Pandera schema used to validate the processed dataset.
+
+    Constructs nullable float columns for each radio feature (RSRP, RSRQ, SNR,
+    CQI, Speed) with empirically derived bounds, plus non-nullable columns for
+    the throughput target and the binary label.  Called once at module load time.
+    """
     feature_cols = {
         name: Column(float, Check.in_range(*config.FEATURE_BOUNDS[name]), nullable=True)
         for name in config.FEATURES
